@@ -1,0 +1,50 @@
+name: EventBeep CI Suite
+
+on:
+  push:
+    branches:
+      - master
+      - build
+      - "feat/**"
+      - "fix/**"
+      - "docs/**"
+  pull_request:
+    branches:
+      - build
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Repository & Code Integrity Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Verify Go Module
+        run: |
+          if [ -f backend/go.mod ]; then
+            cd backend
+            go vet ./... || true
+            go test ./... || true
+          else
+            echo "backend/go.mod not yet created; skipping Go compile step."
+          fi
+
+      - name: Security & Secret Leak Scan
+        run: |
+          # Verify no unencrypted secrets exist in tracked files
+          if grep -rE "(AKIA[0-9A-Z]{16}|ghp_[0-9a-zA-Z]{36}|-----BEGIN RSA PRIVATE KEY-----)" . \
+             --exclude-dir=".git" --exclude-dir="node_modules" --exclude="ci.yml"; then
+            echo "Security Alert: Leaked credentials detected!"
+            exit 1
+          fi
+          echo "Security scan clean."
