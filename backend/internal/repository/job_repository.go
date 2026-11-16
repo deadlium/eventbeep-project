@@ -169,6 +169,13 @@ func (r *PostgresJobRepository) GetJobByID(ctx context.Context, id uuid.UUID) (*
 
 // CreateJob inserts a job record, using ON CONFLICT (hash_key) DO NOTHING for idempotency.
 func (r *PostgresJobRepository) CreateJob(ctx context.Context, job *models.Job) error {
+	_, err := r.CreateJobWithStatus(ctx, job)
+	return err
+}
+
+// CreateJobWithStatus inserts a job record and returns whether a new row was inserted.
+// Returns inserted = false when skipped due to ON CONFLICT (hash_key) DO NOTHING.
+func (r *PostgresJobRepository) CreateJobWithStatus(ctx context.Context, job *models.Job) (bool, error) {
 	if job.ID == uuid.Nil {
 		job.ID = uuid.New()
 	}
@@ -182,7 +189,7 @@ func (r *PostgresJobRepository) CreateJob(ctx context.Context, job *models.Job) 
 		ON CONFLICT (hash_key) DO NOTHING
 	`
 
-	_, err := r.pool.Exec(ctx, query,
+	tag, err := r.pool.Exec(ctx, query,
 		job.ID,
 		job.HashKey,
 		job.Title,
@@ -194,8 +201,8 @@ func (r *PostgresJobRepository) CreateJob(ctx context.Context, job *models.Job) 
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to insert job: %w", err)
+		return false, fmt.Errorf("failed to insert job: %w", err)
 	}
 
-	return nil
+	return tag.RowsAffected() > 0, nil
 }

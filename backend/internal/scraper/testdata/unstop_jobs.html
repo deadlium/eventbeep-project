@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Unstop Jobs - Freshers and Internships</title>
+</head>
+<body>
+    <div class="jobs-container">
+        <!-- Job 1 -->
+        <div class="opportunity-card">
+            <h3 class="job-title">Software Engineer - Fresher</h3>
+            <div class="company-name">Razorpay</div>
+            <span class="job-location">Bangalore</span>
+            <span class="badge">Backend Engineer</span>
+            <p class="description">Looking for 2026/2027 graduates proficient in Go and PostgreSQL.</p>
+            <a href="/jobs/software-engineer-fresher-1" class="apply-btn">Apply Now</a>
+        </div>
+
+        <!-- Job 2 -->
+        <div class="opportunity-card">
+            <h3 class="job-title">Frontend Developer Intern</h3>
+            <div class="organisation-name">Swiggy</div>
+            <span class="location">Bangalore</span>
+            <span class="category">Frontend Developer</span>
+            <p class="job-desc">Internship for Next.js, React, and Tailwind CSS passionate developers.</p>
+            <a href="/jobs/frontend-developer-intern-2">View Details</a>
+        </div>
+
+        <!-- Job 3 -->
+        <article class="job-item">
+            <h2 class="title">Data Analyst Trainee</h2>
+            <div class="org-name">Flipkart</div>
+            <span class="job-location">Delhi NCR</span>
+            <span class="badge">Data Analyst</span>
+            <p class="description">Entry-level opportunity for SQL, Python, and data pipeline enthusiasts.</p>
+            <a href="https://unstop.com/jobs/data-analyst-trainee-3">Apply</a>
+        </article>
+
+        <!-- Malformed Item (Should be safely ignored) -->
+        <div class="opportunity-card">
+            <p>Banner ad or incomplete posting</p>
+        </div>
+
+        <!-- Duplicate Listing (Same company & title, different link) -->
+        <div class="opportunity-card">
+            <h3 class="job-title">Software Engineer - Fresher</h3>
+            <div class="company-name">Razorpay</div>
+            <span class="job-location">Bangalore</span>
+            <span class="badge">Backend Engineer</span>
+            <a href="/jobs/software-engineer-fresher-repost">Apply</a>
+        </div>
+    </div>
+</body>
+</html>
