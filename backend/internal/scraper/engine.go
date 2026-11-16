@@ -6,6 +6,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/deadlium/eventbeep/backend/internal/llm"
 	"github.com/deadlium/eventbeep/backend/internal/models"
 	"github.com/deadlium/eventbeep/backend/internal/repository"
 )
@@ -27,9 +28,10 @@ type IngestionStatusChecker interface {
 
 // Engine coordinates job board scrapers and handles deduplicated persistence.
 type Engine struct {
-	repo     repository.JobRepository
-	scrapers []Scraper
-	mu       sync.RWMutex
+	repo      repository.JobRepository
+	scrapers  []Scraper
+	extractor llm.Extractor
+	mu        sync.RWMutex
 }
 
 // NewEngine initializes a new scraper engine with repository and scrapers.
@@ -38,6 +40,20 @@ func NewEngine(repo repository.JobRepository, scrapers ...Scraper) *Engine {
 		repo:     repo,
 		scrapers: scrapers,
 	}
+}
+
+// SetExtractor configures an LLM entity extractor to enrich scraped jobs before insertion.
+func (e *Engine) SetExtractor(extractor llm.Extractor) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.extractor = extractor
+}
+
+// Extractor returns the configured LLM entity extractor.
+func (e *Engine) Extractor() llm.Extractor {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.extractor
 }
 
 // RegisterScraper registers an additional scraper with the engine.
@@ -121,6 +137,25 @@ func (e *Engine) IngestJobs(ctx context.Context, scrapedJobs []ScrapedJob) (*Ing
 			continue
 		}
 		seenHashes[job.HashKey] = true
+
+		// Enrich job with LLM extractor if configured
+		e.mu.RLock()
+		ext := e.extractor
+		e.mu.RUnlock()
+
+		if ext != nil {
+			entity, err := ext.Extract(ctx, job.Title, scraped.RawDescription)
+			if err == nil && entity != nil {
+				if entity.Role != "" {
+					r := entity.Role
+					job.Role = &r
+				}
+				if entity.City != "" {
+					c := entity.City
+					job.City = &c
+				}
+			}
+		}
 
 		if hasStatusChecker {
 			inserted, err := statusChecker.CreateJobWithStatus(ctx, job)

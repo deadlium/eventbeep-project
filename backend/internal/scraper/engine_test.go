@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/deadlium/eventbeep/backend/internal/llm"
 	"github.com/deadlium/eventbeep/backend/internal/models"
 	"github.com/deadlium/eventbeep/backend/internal/scraper"
 )
@@ -318,5 +319,45 @@ func TestScrapedJob_ToJob(t *testing.T) {
 	}
 	if job.HashKey == "" {
 		t.Error("expected populated HashKey")
+	}
+}
+
+func TestEngine_LLMEnrichment(t *testing.T) {
+	repo := NewDeduplicatingJobRepository()
+	s := scraper.NewUnstopScraper(nil)
+	engine := scraper.NewEngine(repo, s)
+
+	// Attach fallback LLM extractor
+	extractor := llm.NewFallbackExtractor()
+	engine.SetExtractor(extractor)
+
+	if engine.Extractor() != extractor {
+		t.Error("expected configured extractor")
+	}
+
+	rawJobs := []scraper.ScrapedJob{
+		{
+			Title:          "Golang Backend Developer",
+			Company:        "Razorpay",
+			RawDescription: "Join our core payments team in Bangalore.",
+			SourceURL:      "https://example.com/job/golang",
+		},
+	}
+
+	res, err := engine.IngestJobs(context.Background(), rawJobs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if res.TotalInserted != 1 {
+		t.Fatalf("expected 1 job inserted, got %d", res.TotalInserted)
+	}
+
+	storedJob := res.Jobs[0]
+	if storedJob.Role == nil || *storedJob.Role != "Backend Engineer" {
+		t.Errorf("expected role 'Backend Engineer', got %v", storedJob.Role)
+	}
+	if storedJob.City == nil || *storedJob.City != "Bangalore" {
+		t.Errorf("expected city 'Bangalore', got %v", storedJob.City)
 	}
 }

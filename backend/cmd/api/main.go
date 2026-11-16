@@ -12,8 +12,11 @@ import (
 
 	"github.com/deadlium/eventbeep/backend/internal/config"
 	"github.com/deadlium/eventbeep/backend/internal/database"
+	"github.com/deadlium/eventbeep/backend/internal/llm"
 	"github.com/deadlium/eventbeep/backend/internal/repository"
 	"github.com/deadlium/eventbeep/backend/internal/routes"
+	"github.com/deadlium/eventbeep/backend/internal/scheduler"
+	"github.com/deadlium/eventbeep/backend/internal/scraper"
 )
 
 func main() {
@@ -42,6 +45,21 @@ func main() {
 		}
 
 		jobRepo = repository.NewPostgresJobRepository(db.Pool)
+
+		// Initialize Phase 2 scrapers, Phase 3 Gemini LLM entity extractor, and 24h background scheduler
+		unstopScraper := scraper.NewUnstopScraper(nil)
+		wellfoundScraper := scraper.NewWellfoundScraper(nil)
+		internshalaScraper := scraper.NewInternshalaScraper(nil)
+
+		extractor := llm.NewGeminiExtractor(cfg.GeminiAPIKey, llm.WithModel(cfg.GeminiModel))
+		scraperEngine := scraper.NewEngine(jobRepo, unstopScraper, wellfoundScraper, internshalaScraper)
+		scraperEngine.SetExtractor(extractor)
+
+		if cfg.SchedulerEnabled {
+			bgScheduler := scheduler.NewScheduler(jobRepo, scraperEngine, extractor, cfg.SchedulerInterval)
+			bgScheduler.Start(ctx)
+			defer bgScheduler.Stop()
+		}
 	}
 
 	router := routes.SetupRouter(db, jobRepo)
