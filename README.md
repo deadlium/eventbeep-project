@@ -111,23 +111,24 @@ flowchart TD
 
 ## 🚀 Execution Phases
 
-- **Phase 1: Database & Go Backend Setup**
+- [x] **Phase 1: Database & Go Backend Setup** (Completed & Integrated)
   - PostgreSQL schema (`jobs` table with UUID, hash_key, title, company, role, city, source_url, created_at).
   - Go connection pool and REST endpoint `GET /api/jobs` with pagination and filtering.
-- **Phase 2: The Scraper Engine (Go)**
-  - Web scraper module using `goquery` or `colly`.
-  - SHA-256 hash deduplication on `lowercase(company_name + job_title)`.
-- **Phase 3: LLM Integration (Go)**
-  - Gemini API integration to extract structured `role` and `city`.
-  - 24-hour background ticker/cron pipeline.
-- **Phase 4: Next.js Frontend**
-  - Next.js + Tailwind CSS UI with debounced search and city/role dropdown filters.
+- [x] **Phase 2: The Scraper Engine (Go)** (Completed & Integrated)
+  - Web scraper module using `goquery` for Unstop, Wellfound, and Internshala.
+  - SHA-256 hash deduplication on `lowercase(company_name + job_title)` with idempotent database insertion.
+- [x] **Phase 3: LLM Integration (Go)** (Completed & Integrated)
+  - Gemini API integration with structured JSON extraction and resilient heuristic fallback.
+  - 24-hour background ticker/cron pipeline orchestrating scrape, dedup, enrich, and store.
+- [x] **Phase 4: Next.js Frontend** (Completed & Integrated)
+  - Next.js 16 + Tailwind CSS 4 UI with debounced search, city/role dropdown filters, responsive table/cards, loading skeletons, and Go API client.
 
 ---
 
 ## 🤖 Dedicated Agent Team
 
-This repository is maintained and developed with specialized AI agents:
+This repository is governed by **EventBeep CTO** orchestrating specialized domain leads:
+- **`EventBeep CTO`** (`agent-e1edae47-b8a1-4fbc-b552-1f4a5a506f5f`): Technical Director & Architect. Manages the roadmap, orchestrates team leads, enforces phase gates (Phases 1-4), and approves integration into `build`.
 - **`EventBeep Backend Lead`** (`agent-a802070d-a848-4289-ae32-92e544a82172`): Database schema, Go REST API, pagination & query filtering.
 - **`EventBeep Pipeline Lead`** (`agent-f6eb04e4-c68c-4588-be73-18e37f971ecf`): Web scraper engine, deduplication, Gemini LLM enrichment, and 24h cron scheduling.
 - **`EventBeep Frontend Lead`** (`agent-96f6e317-92ba-474f-905e-74d8879872c0`): Next.js frontend, Tailwind CSS, search and filter components.
