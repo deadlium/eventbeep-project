@@ -52,6 +52,7 @@ func NewPool(ctx context.Context, cfg *config.Config) (*DB, error) {
 func (db *DB) EnsureSchema(ctx context.Context) error {
 	schemaSQL := `
 	CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+	CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 	CREATE TABLE IF NOT EXISTS jobs (
 		id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

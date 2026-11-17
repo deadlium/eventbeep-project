@@ -75,10 +75,15 @@ func (h *JobHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 
 	role := strings.TrimSpace(q.Get("role"))
 	city := strings.TrimSpace(q.Get("city"))
+	search := strings.TrimSpace(q.Get("search"))
+	if search == "" {
+		search = strings.TrimSpace(q.Get("q"))
+	}
 
 	filter := models.JobFilter{
 		Role:   role,
 		City:   city,
+		Search: search,
 		Limit:  limit,
 		Offset: offset,
 		Page:   page,

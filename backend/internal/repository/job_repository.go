@@ -53,6 +53,23 @@ func (r *PostgresJobRepository) GetJobs(ctx context.Context, filter models.JobFi
 		argIdx++
 	}
 
+	if strings.TrimSpace(filter.Search) != "" {
+		searchTerms := expandSearchTerms(filter.Search)
+		var searchClauses []string
+		for _, term := range searchTerms {
+			searchPattern := "%" + term + "%"
+			searchClauses = append(searchClauses, fmt.Sprintf(
+				"(title ILIKE $%d OR company ILIKE $%d OR role ILIKE $%d OR city ILIKE $%d)",
+				argIdx, argIdx+1, argIdx+2, argIdx+3,
+			))
+			args = append(args, searchPattern, searchPattern, searchPattern, searchPattern)
+			argIdx += 4
+		}
+		if len(searchClauses) > 0 {
+			whereClauses = append(whereClauses, "("+strings.Join(searchClauses, " OR ")+")")
+		}
+	}
+
 	whereSQL := ""
 	if len(whereClauses) > 0 {
 		whereSQL = " WHERE " + strings.Join(whereClauses, " AND ")
@@ -205,4 +222,83 @@ func (r *PostgresJobRepository) CreateJobWithStatus(ctx context.Context, job *mo
 	}
 
 	return tag.RowsAffected() > 0, nil
+}
+
+// Common typo corrections and synonym expansions for natural language job search.
+var typoSynonyms = map[string][]string{
+	"frotend":        {"frontend", "react", "ui"},
+	"frntend":        {"frontend"},
+	"front-end":      {"frontend"},
+	"backnd":         {"backend", "golang", "node", "java", "python"},
+	"bakend":         {"backend"},
+	"back-end":       {"backend"},
+	"fullstak":       {"fullstack", "full stack"},
+	"fulstack":       {"fullstack", "full stack"},
+	"pythn":          {"python"},
+	"pyton":          {"python"},
+	"softwar":        {"software", "sde"},
+	"softwere":       {"software"},
+	"enginer":        {"engineer"},
+	"engneer":        {"engineer"},
+	"bngalore":       {"bangalore", "bengaluru"},
+	"banglore":       {"bangalore", "bengaluru"},
+	"bengaluru":      {"bangalore"},
+	"bnglr":          {"bangalore"},
+	"hydrabad":       {"hyderabad"},
+	"hyderbad":       {"hyderabad"},
+	"mumbay":         {"mumbai"},
+	"bombay":         {"mumbai"},
+	"delhi":          {"delhi", "noida", "gurgaon"},
+	"gurugram":       {"gurgaon", "delhi"},
+	"chenai":         {"chennai"},
+	"madras":         {"chennai"},
+	"remot":          {"remote"},
+	"remotly":        {"remote"},
+	"wfh":            {"remote"},
+	"work from home": {"remote"},
+	"freshr":         {"fresher", "junior", "intern"},
+	"intren":         {"intern", "internship"},
+	"intrn":          {"intern"},
+	"devloper":       {"developer"},
+	"devlopr":        {"developer"},
+}
+
+// expandSearchTerms takes a user query string, cleans it, and returns the query along with typo corrections and synonyms.
+func expandSearchTerms(rawQuery string) []string {
+	cleaned := strings.ToLower(strings.TrimSpace(rawQuery))
+	if cleaned == "" {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	var result []string
+
+	addTerm := func(t string) {
+		t = strings.TrimSpace(t)
+		if t != "" && !seen[t] {
+			seen[t] = true
+			result = append(result, t)
+		}
+	}
+
+	addTerm(cleaned)
+
+	// Check full query
+	if syns, ok := typoSynonyms[cleaned]; ok {
+		for _, s := range syns {
+			addTerm(s)
+		}
+	}
+
+	// Check individual tokens
+	words := strings.Fields(cleaned)
+	for _, w := range words {
+		if syns, ok := typoSynonyms[w]; ok {
+			for _, s := range syns {
+				addTerm(s)
+			}
+		}
+	}
+
+	return result
 }

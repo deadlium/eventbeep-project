@@ -20,8 +20,9 @@ type Job struct {
 
 // JobFilter defines query parameters for listing jobs.
 type JobFilter struct {
-	Role   string `json:"role"`
-	City   string `json:"city"`
+	Role   string `json:"role,omitempty"`
+	City   string `json:"city,omitempty"`
+	Search string `json:"search,omitempty"`
 	Limit  int    `json:"limit"`
 	Offset int    `json:"offset"`
 	Page   int    `json:"page"`

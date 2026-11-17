@@ -60,7 +60,7 @@ export function SearchFilters({
             type="text"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search by job title, tech stack, or company..."
+            placeholder="Search title, skills, company (e.g. 'frotend', 'pythn', 'banglore')..."
             className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/60 pl-10 pr-9 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-indigo-500 focus:bg-white dark:focus:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
           />
           {searchTerm && (

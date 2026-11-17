@@ -161,7 +161,7 @@ func (s *Scheduler) RunOnce(ctx context.Context) (*scraper.IngestionResult, erro
 	s.lastResult = res
 	s.mu.Unlock()
 
-	log.Printf("[scheduler] Pipeline cycle completed in %v: Scraped=%d, Inserted=%d, Skipped=%d, Errors=%d",
+	log.Printf("[scheduler] Pipeline cycle completed in %v: Scraped=%d, Inserted=%d new, Skipped=%d (already in database), Errors=%d",
 		time.Since(startTime), res.TotalScraped, res.TotalInserted, res.TotalSkipped, len(res.Errors))
 
 	return res, nil

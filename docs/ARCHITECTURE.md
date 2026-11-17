@@ -7,23 +7,23 @@ EventBeep is an automated job board aggregator designed to collect, enrich, dedu
 ```mermaid
 flowchart TD
     subgraph Ingestion ["Ingestion & Scraper Engine (Go)"]
-      S1[Scraper: Unstop / Wellfound / etc.]
-      DEDUP[SHA-256 Deduplication: lowercase(company+title)]
-      LLM[LLM Entity Extractor: Gemini API]
-      CRON[24-Hour Cron / Ticker]
+      S1["Scraper: Unstop / Wellfound / etc."]
+      DEDUP["SHA-256 Deduplication: lowercase(company+title)"]
+      LLM["LLM Entity Extractor: Gemini API"]
+      CRON["24-Hour Cron / Ticker"]
     end
 
     subgraph Storage ["Database (PostgreSQL)"]
-      DB[(jobs table with UUID, hash_key, role, city)]
+      DB[("jobs table with UUID, hash_key, role, city")]
     end
 
     subgraph API ["REST API Service (Go)"]
-      REST[GET /api/jobs?role=&city=&page=&limit=]
+      REST["GET /api/jobs?role=&city=&page=&limit="]
     end
 
     subgraph Client ["Frontend (Next.js & Tailwind CSS)"]
-      UI[Responsive Job Board UI]
-      FILTER[Debounced Search + Dropdowns]
+      UI["Responsive Job Board UI"]
+      FILTER["Debounced Search + Dropdowns"]
     end
 
     CRON --> S1
