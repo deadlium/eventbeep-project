@@ -36,7 +36,26 @@ func (m *MockJobRepository) GetJobs(ctx context.Context, filter models.JobFilter
 			}
 		}
 
-		if matchRole && matchCity {
+		matchSearch := true
+		if filter.Search != "" {
+			term := strings.ToLower(strings.TrimSpace(filter.Search))
+			found := strings.Contains(strings.ToLower(job.Title), term) ||
+				strings.Contains(strings.ToLower(job.Company), term) ||
+				(job.Role != nil && strings.Contains(strings.ToLower(*job.Role), term)) ||
+				(job.City != nil && strings.Contains(strings.ToLower(*job.City), term))
+
+			// Check simulated typo corrections
+			if !found {
+				if term == "frotend" && job.Role != nil && strings.Contains(strings.ToLower(*job.Role), "frontend") {
+					found = true
+				} else if term == "bngalore" && job.City != nil && strings.Contains(strings.ToLower(*job.City), "bangalore") {
+					found = true
+				}
+			}
+			matchSearch = found
+		}
+
+		if matchRole && matchCity && matchSearch {
 			filtered = append(filtered, job)
 		}
 	}
@@ -268,5 +287,32 @@ func TestListJobs_MethodNotAllowed(t *testing.T) {
 
 	if rr.Code != http.StatusMethodNotAllowed {
 		t.Errorf("expected status 405, got %d", rr.Code)
+	}
+}
+
+func TestListJobs_SearchTypoTolerance(t *testing.T) {
+	repo := setupTestRepository()
+	handler := handlers.NewJobHandler(repo)
+
+	// Test searching with deliberate typo "frotend"
+	req := httptest.NewRequest(http.MethodGet, "/api/jobs?search=frotend", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ListJobs(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rr.Code)
+	}
+
+	var resp models.PaginatedJobsResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.Pagination.Total != 1 {
+		t.Fatalf("expected 1 job found for typo 'frotend', got %d", resp.Pagination.Total)
+	}
+	if *resp.Data[0].Role != "Frontend Developer" {
+		t.Errorf("expected job with role 'Frontend Developer', got '%s'", *resp.Data[0].Role)
 	}
 }

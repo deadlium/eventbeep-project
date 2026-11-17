@@ -266,6 +266,107 @@ export const SAMPLE_JOBS: Job[] = [
   },
 ];
 
+// Calculate Levenshtein distance between two strings for typo tolerance.
+export function levenshteinDistance(s1: string, s2: string): number {
+  const m = s1.length;
+  const n = s2.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (s1[i - 1] === s2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+  }
+  return dp[m][n];
+}
+
+// Common tech keywords, role misspellings, and Indian city abbreviations
+const COMMON_TYPOS: Record<string, string[]> = {
+  frotend: ["frontend", "react", "ui"],
+  frntend: ["frontend"],
+  "front-end": ["frontend"],
+  backnd: ["backend", "golang", "node", "java", "python"],
+  bakend: ["backend"],
+  "back-end": ["backend"],
+  fullstak: ["fullstack", "full stack"],
+  fulstack: ["fullstack", "full stack"],
+  pythn: ["python"],
+  pyton: ["python"],
+  softwar: ["software", "sde"],
+  softwere: ["software"],
+  enginer: ["engineer"],
+  engneer: ["engineer"],
+  bngalore: ["bangalore", "bengaluru"],
+  banglore: ["bangalore", "bengaluru"],
+  bengaluru: ["bangalore"],
+  bnglr: ["bangalore"],
+  hydrabad: ["hyderabad"],
+  hyderbad: ["hyderabad"],
+  mumbay: ["mumbai"],
+  bombay: ["mumbai"],
+  delhi: ["delhi", "noida", "gurgaon"],
+  gurugram: ["gurgaon", "delhi"],
+  chenai: ["chennai"],
+  remot: ["remote"],
+  remotly: ["remote"],
+  wfh: ["remote"],
+  freshr: ["fresher", "intern", "junior"],
+  intren: ["intern", "internship"],
+  intrn: ["intern"],
+  devloper: ["developer"],
+  devlopr: ["developer"],
+};
+
+// matchesFuzzy returns true if target text matches the query via substring, dictionary expansion, or Levenshtein distance <= 2.
+export function matchesFuzzy(text: string | null | undefined, query: string): boolean {
+  if (!text || !query) return false;
+  const targetLower = text.toLowerCase().trim();
+  const queryLower = query.toLowerCase().trim();
+
+  // 1. Direct substring match
+  if (targetLower.includes(queryLower)) return true;
+
+  // 2. Check typo dictionary for full query
+  const expansions = COMMON_TYPOS[queryLower] || [];
+  for (const exp of expansions) {
+    if (targetLower.includes(exp)) return true;
+  }
+
+  // 3. Token-level fuzzy comparison
+  const targetWords = targetLower.split(/[\s,.\-_/\\()]+/);
+  const queryWords = queryLower.split(/\s+/);
+
+  for (const qWord of queryWords) {
+    if (qWord.length <= 2) continue; // skip single letters / very short words
+
+    // Check token dictionary expansion
+    const tokenExpansions = COMMON_TYPOS[qWord] || [];
+    for (const exp of tokenExpansions) {
+      if (targetLower.includes(exp)) return true;
+    }
+
+    // Levenshtein threshold: 1 edit for 3-4 chars, 2 edits for 5+ chars
+    const maxDistance = qWord.length >= 5 ? 2 : 1;
+
+    for (const tWord of targetWords) {
+      if (tWord.length <= 2) continue;
+      if (Math.abs(tWord.length - qWord.length) > maxDistance) continue;
+      if (levenshteinDistance(tWord, qWord) <= maxDistance) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 export async function fetchJobs(
   params: JobFilterParams = {}
 ): Promise<{ response: PaginatedJobsResponse; isFallback: boolean }> {
@@ -280,6 +381,9 @@ export async function fetchJobs(
   }
   if (city && city !== "All Cities") {
     query.set("city", city);
+  }
+  if (search && search.trim() !== "") {
+    query.set("search", search.trim());
   }
 
   const endpoint = `${API_BASE_URL}/api/jobs?${query.toString()}`;
@@ -300,16 +404,14 @@ export async function fetchJobs(
 
     if (res.ok) {
       const data: PaginatedJobsResponse = await res.json();
-      // If client search query is present, filter further client-side
       let filteredData = data.data || [];
       if (search && search.trim() !== "") {
-        const term = search.toLowerCase().trim();
         filteredData = filteredData.filter(
           (j) =>
-            j.title.toLowerCase().includes(term) ||
-            j.company.toLowerCase().includes(term) ||
-            (j.role && j.role.toLowerCase().includes(term)) ||
-            (j.city && j.city.toLowerCase().includes(term))
+            matchesFuzzy(j.title, search) ||
+            matchesFuzzy(j.company, search) ||
+            matchesFuzzy(j.role, search) ||
+            matchesFuzzy(j.city, search)
         );
       }
 
@@ -341,13 +443,12 @@ export async function fetchJobs(
   }
 
   if (search && search.trim() !== "") {
-    const term = search.toLowerCase().trim();
     results = results.filter(
       (j) =>
-        j.title.toLowerCase().includes(term) ||
-        j.company.toLowerCase().includes(term) ||
-        (j.role && j.role.toLowerCase().includes(term)) ||
-        (j.city && j.city.toLowerCase().includes(term))
+        matchesFuzzy(j.title, search) ||
+        matchesFuzzy(j.company, search) ||
+        matchesFuzzy(j.role, search) ||
+        matchesFuzzy(j.city, search)
     );
   }
 

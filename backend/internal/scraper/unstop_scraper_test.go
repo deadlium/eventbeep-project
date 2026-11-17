@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/deadlium/eventbeep/backend/internal/scraper"
@@ -131,5 +132,51 @@ func TestUnstopScraper_ScrapeHTTPError(t *testing.T) {
 	_, err := s.Scrape(context.Background())
 	if err == nil {
 		t.Fatal("expected error on HTTP 500, got nil")
+	}
+}
+
+func TestUnstopScraper_ParseJSON(t *testing.T) {
+	jsonData := `{
+		"data": {
+			"current_page": 1,
+			"data": [
+				{
+					"id": 999,
+					"title": "Junior Go Developer",
+					"seo_url": "https://unstop.com/jobs/junior-go-developer-999",
+					"details": "<p>Build scalable microservices in Bangalore.</p>",
+					"organisation": { "name": "EventBeep Tech" },
+					"jobDetail": { "locations": ["Bangalore"] },
+					"workfunction": [{ "name": "Software Engineer" }]
+				}
+			]
+		}
+	}`
+
+	s := scraper.NewUnstopScraper(nil)
+	jobs, err := s.ParseJSON(strings.NewReader(jsonData), "https://unstop.com/jobs")
+	if err != nil {
+		t.Fatalf("unexpected JSON parse error: %v", err)
+	}
+
+	if len(jobs) != 1 {
+		t.Fatalf("expected 1 job, got %d", len(jobs))
+	}
+
+	job := jobs[0]
+	if job.Title != "Junior Go Developer" {
+		t.Errorf("expected title 'Junior Go Developer', got '%s'", job.Title)
+	}
+	if job.Company != "EventBeep Tech" {
+		t.Errorf("expected company 'EventBeep Tech', got '%s'", job.Company)
+	}
+	if job.City != "Bangalore" {
+		t.Errorf("expected city 'Bangalore', got '%s'", job.City)
+	}
+	if job.Role != "Software Engineer" {
+		t.Errorf("expected role 'Software Engineer', got '%s'", job.Role)
+	}
+	if job.SourceURL != "https://unstop.com/jobs/junior-go-developer-999" {
+		t.Errorf("expected source_url, got '%s'", job.SourceURL)
 	}
 }
