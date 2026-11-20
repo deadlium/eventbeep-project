@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -96,4 +97,41 @@ func getEnvAsInt(key string, defaultVal int) int {
 		}
 	}
 	return defaultVal
+}
+
+// LoadEnvFile reads key-value pairs from .env files and sets them into the environment
+// if they are not already set. It checks provided paths or default locations (".env", "backend/.env", "../.env").
+func LoadEnvFile(filenames ...string) {
+	if len(filenames) == 0 {
+		filenames = []string{".env", "backend/.env", "../.env"}
+	}
+
+	for _, filename := range filenames {
+		data, err := os.ReadFile(filename)
+		if err != nil {
+			continue
+		}
+
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				k := strings.TrimSpace(parts[0])
+				v := strings.TrimSpace(parts[1])
+				// Strip quotes if any
+				if (strings.HasPrefix(v, "\"") && strings.HasSuffix(v, "\"")) ||
+					(strings.HasPrefix(v, "'") && strings.HasSuffix(v, "'")) {
+					v = v[1 : len(v)-1]
+				}
+				if val := os.Getenv(k); val == "" && k != "" {
+					_ = os.Setenv(k, v)
+				}
+			}
+		}
+		break
+	}
 }

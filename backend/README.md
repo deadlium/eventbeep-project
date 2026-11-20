@@ -31,6 +31,31 @@ Go REST API and data ingestion service for EventBeep.
   - Background ticker orchestrating: `Scrape -> Deduplicate -> LLM Enrich -> Store in DB`.
   - Configurable interval via `SCHEDULER_INTERVAL` (defaults to 24 hours), graceful shutdown on OS signals or context cancellation.
 
+## Configuration & Environment Variables
+
+Copy `.env.example` to `.env` to configure the service:
+```bash
+cp .env.example .env
+```
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `8080` | Port for HTTP server |
+| `APP_ENV` | `development` | Runtime environment (`development`, `production`) |
+| `DATABASE_URL` | *(constructed)* | Full PostgreSQL connection URL |
+| `DB_HOST` | `localhost` | PostgreSQL host |
+| `DB_PORT` | `5432` | PostgreSQL port |
+| `DB_USER` | `postgres` | PostgreSQL username |
+| `DB_PASSWORD` | `postgres` | PostgreSQL password |
+| `DB_NAME` | `eventbeep` | PostgreSQL database name |
+| `DB_SSLMODE` | `disable` | SSL mode (`disable`, `require`) |
+| `DB_MAX_CONNS` | `25` | Maximum database pool connections |
+| `DB_MIN_CONNS` | `5` | Minimum database pool connections |
+| `GEMINI_API_KEY` | *(empty)* | Google Gemini API key (triggers fallback when empty) |
+| `GEMINI_MODEL` | `gemini-1.5-flash` | Gemini model name |
+| `SCHEDULER_ENABLED` | `true` | Enable/disable 24h scraper scheduler |
+| `SCHEDULER_INTERVAL`| `24h` | Interval between scraper runs (e.g., `24h`, `12h`) |
+
 ## Running Tests
 Run all unit and integration tests with coverage:
 ```bash

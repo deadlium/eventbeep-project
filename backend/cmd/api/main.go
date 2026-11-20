@@ -22,6 +22,7 @@ import (
 func main() {
 	log.Println("[server] Starting EventBeep backend service...")
 
+	config.LoadEnvFile()
 	cfg := config.Load()
 
 	ctx, cancel := context.WithCancel(context.Background())

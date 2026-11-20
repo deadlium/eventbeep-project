@@ -129,7 +129,7 @@ export default function HomePage() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
         {/* Hero Section */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900 via-zinc-900 to-zinc-900 border border-indigo-950/60 p-6 sm:p-8 shadow-xl">
+        <div className="relative overflow-hidden rounded-3xl bg-linear-to-r from-indigo-900 via-zinc-900 to-zinc-900 border border-indigo-950/60 p-6 sm:p-8 shadow-xl">
           <div className="relative z-10 max-w-3xl space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-400/20 text-indigo-300 text-xs font-semibold">
               <SparklesIcon className="w-3.5 h-3.5" />
