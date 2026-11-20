@@ -254,7 +254,7 @@ func isTransientHTTPStatus(code int) bool {
 func (e *GeminiExtractor) callInteractionsAPI(ctx context.Context, title, description string) (*ExtractedEntity, error) {
 	model := e.model
 	if model == DefaultGeminiModel || model == "" {
-		model = "gemini-3.8-flash"
+		model = "gemini-3.1-flash-lite"
 	}
 
 	prompt := fmt.Sprintf("%s\n\nTitle: %s\nDescription: %s\nReturn ONLY the JSON object without code fences or additional commentary.", SystemPrompt, title, description)
