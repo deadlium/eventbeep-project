@@ -23,12 +23,12 @@ func main() {
 	model := strings.TrimSpace(os.Getenv("GEMINI_MODEL"))
 	if model == "" {
 		if strings.HasPrefix(apiKey, "AQ.") {
-			model = "gemini-3.8-flash"
+			model = "gemini-3.1-flash-lite"
 		} else {
 			model = "gemini-1.5-flash"
 		}
 	} else if strings.HasPrefix(apiKey, "AQ.") && model == "gemini-1.5-flash" {
-		model = "gemini-3.8-flash"
+		model = "gemini-3.1-flash-lite"
 	}
 
 	if apiKey == "" {

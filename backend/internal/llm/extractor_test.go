@@ -23,44 +23,44 @@ func TestFallbackExtractor_RolesAndCities(t *testing.T) {
 	fb := llm.NewFallbackExtractor()
 
 	testCases := []struct {
-		title       string
-		desc        string
+		title        string
+		desc         string
 		expectedRole string
 		expectedCity string
 	}{
 		{
-			title:       "Junior Golang Backend Developer",
-			desc:        "Looking for freshers in Bangalore with Go and PostgreSQL experience.",
+			title:        "Junior Golang Backend Developer",
+			desc:         "Looking for freshers in Bangalore with Go and PostgreSQL experience.",
 			expectedRole: "Backend Engineer",
 			expectedCity: "Bangalore",
 		},
 		{
-			title:       "React UI Intern",
-			desc:        "Work on frontend user experience in Mumbai.",
+			title:        "React UI Intern",
+			desc:         "Work on frontend user experience in Mumbai.",
 			expectedRole: "Frontend Engineer",
 			expectedCity: "Mumbai",
 		},
 		{
-			title:       "Full Stack Developer Fresher",
-			desc:        "Opportunity in Gurgaon / Delhi NCR for React and Node.",
+			title:        "Full Stack Developer Fresher",
+			desc:         "Opportunity in Gurgaon / Delhi NCR for React and Node.",
 			expectedRole: "Full Stack Engineer",
 			expectedCity: "Delhi NCR",
 		},
 		{
-			title:       "Data Analyst Trainee",
-			desc:        "Remote position for Python and SQL enthusiasts.",
+			title:        "Data Analyst Trainee",
+			desc:         "Remote position for Python and SQL enthusiasts.",
 			expectedRole: "Data Analyst",
 			expectedCity: "Remote",
 		},
 		{
-			title:       "DevOps Cloud Engineer",
-			desc:        "Join our cloud infrastructure team in Pune.",
+			title:        "DevOps Cloud Engineer",
+			desc:         "Join our cloud infrastructure team in Pune.",
 			expectedRole: "DevOps Engineer",
 			expectedCity: "Pune",
 		},
 		{
-			title:       "QA Software Tester",
-			desc:        "Automation testing role based in Hyderabad.",
+			title:        "QA Software Tester",
+			desc:         "Automation testing role based in Hyderabad.",
 			expectedRole: "QA Engineer",
 			expectedCity: "Hyderabad",
 		},
@@ -344,7 +344,7 @@ func TestGeminiExtractor_InteractionsAPI(t *testing.T) {
 	extractor := llm.NewGeminiExtractor(
 		"AQ.TestKey123",
 		llm.WithHTTPClient(client),
-		llm.WithModel("gemini-3.8-flash"),
+		llm.WithModel("gemini-3.1-flash-lite"),
 	)
 
 	entity, err := extractor.Extract(context.Background(), "Full Stack Dev", "Bengaluru office")
@@ -370,7 +370,7 @@ func TestGeminiExtractor_503RetrySuccess(t *testing.T) {
 				return &http.Response{
 					StatusCode: http.StatusServiceUnavailable,
 					Header:     http.Header{"Content-Type": []string{"application/json"}},
-					Body:       io.NopCloser(bytes.NewBufferString(`{"error":{"message":"gemini-3.8-flash is currently experiencing high demand","code":"service_unavailable"}}`)),
+					Body:       io.NopCloser(bytes.NewBufferString(`{"error":{"message":"gemini-3.1-flash-lite is currently experiencing high demand","code":"service_unavailable"}}`)),
 				}, nil
 			}
 
@@ -402,7 +402,7 @@ func TestGeminiExtractor_503RetrySuccess(t *testing.T) {
 	extractor := llm.NewGeminiExtractor(
 		"AQ.TestRetryKey",
 		llm.WithHTTPClient(client),
-		llm.WithModel("gemini-3.8-flash"),
+		llm.WithModel("gemini-3.1-flash-lite"),
 	)
 
 	entity, err := extractor.Extract(context.Background(), "Golang Developer", "Pune location")
@@ -435,7 +435,7 @@ func TestGeminiExtractor_503PersistentFallback(t *testing.T) {
 	extractor := llm.NewGeminiExtractor(
 		"AQ.TestPersistent503",
 		llm.WithHTTPClient(client),
-		llm.WithModel("gemini-3.8-flash"),
+		llm.WithModel("gemini-3.1-flash-lite"),
 	)
 
 	// Deliberate persistent 503 should gracefully activate rule fallback without returning an error
