@@ -1,14 +1,23 @@
 package llm_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/deadlium/eventbeep/backend/internal/llm"
 )
+
+type mockHTTPClient struct {
+	doFunc func(req *http.Request) (*http.Response, error)
+}
+
+func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	return m.doFunc(req)
+}
 
 func TestFallbackExtractor_RolesAndCities(t *testing.T) {
 	fb := llm.NewFallbackExtractor()
@@ -90,34 +99,40 @@ func TestGeminiExtractor_EmptyAPIKey_UsesFallback(t *testing.T) {
 }
 
 func TestGeminiExtractor_SuccessWithMockServer(t *testing.T) {
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("key") != "secret-test-key" {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
+	client := &mockHTTPClient{
+		doFunc: func(r *http.Request) (*http.Response, error) {
+			if r.URL.Query().Get("key") != "secret-test-key" && r.Header.Get("x-goog-api-key") != "secret-test-key" {
+				return &http.Response{
+					StatusCode: http.StatusUnauthorized,
+					Body:       io.NopCloser(bytes.NewBufferString("unauthorized")),
+				}, nil
+			}
 
-		resp := map[string]interface{}{
-			"candidates": []map[string]interface{}{
-				{
-					"content": map[string]interface{}{
-						"parts": []map[string]interface{}{
-							{
-								"text": `{"role": "Backend Engineer", "city": "Bengaluru"}`,
+			resp := map[string]interface{}{
+				"candidates": []map[string]interface{}{
+					{
+						"content": map[string]interface{}{
+							"parts": []map[string]interface{}{
+								{
+									"text": `{"role": "Backend Engineer", "city": "Bengaluru"}`,
+								},
 							},
 						},
 					},
 				},
-			},
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer mockServer.Close()
+			}
+			b, _ := json.Marshal(resp)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewReader(b)),
+			}, nil
+		},
+	}
 
 	extractor := llm.NewGeminiExtractor(
 		"secret-test-key",
-		llm.WithBaseURL(mockServer.URL),
+		llm.WithHTTPClient(client),
 		llm.WithModel("gemini-1.5-flash"),
 	)
 
@@ -135,29 +150,33 @@ func TestGeminiExtractor_SuccessWithMockServer(t *testing.T) {
 }
 
 func TestGeminiExtractor_MarkdownCodeFenceHandling(t *testing.T) {
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]interface{}{
-			"candidates": []map[string]interface{}{
-				{
-					"content": map[string]interface{}{
-						"parts": []map[string]interface{}{
-							{
-								"text": "```json\n{\"role\": \"Frontend Engineer\", \"city\": \"Remote\"}\n```",
+	client := &mockHTTPClient{
+		doFunc: func(r *http.Request) (*http.Response, error) {
+			resp := map[string]interface{}{
+				"candidates": []map[string]interface{}{
+					{
+						"content": map[string]interface{}{
+							"parts": []map[string]interface{}{
+								{
+									"text": "```json\n{\"role\": \"Frontend Engineer\", \"city\": \"Remote\"}\n```",
+								},
 							},
 						},
 					},
 				},
-			},
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer mockServer.Close()
+			}
+			b, _ := json.Marshal(resp)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewReader(b)),
+			}, nil
+		},
+	}
 
 	extractor := llm.NewGeminiExtractor(
 		"secret-test-key",
-		llm.WithBaseURL(mockServer.URL),
+		llm.WithHTTPClient(client),
 	)
 
 	entity, err := extractor.Extract(context.Background(), "React Dev", "Anywhere")
@@ -174,14 +193,18 @@ func TestGeminiExtractor_MarkdownCodeFenceHandling(t *testing.T) {
 }
 
 func TestGeminiExtractor_ErrorTriggersFallback(t *testing.T) {
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "server error", http.StatusInternalServerError)
-	}))
-	defer mockServer.Close()
+	client := &mockHTTPClient{
+		doFunc: func(r *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusInternalServerError,
+				Body:       io.NopCloser(bytes.NewBufferString("server error")),
+			}, nil
+		},
+	}
 
 	extractor := llm.NewGeminiExtractor(
 		"secret-test-key",
-		llm.WithBaseURL(mockServer.URL),
+		llm.WithHTTPClient(client),
 	)
 
 	entity, err := extractor.Extract(context.Background(), "Junior Golang Developer", "Bangalore location")
@@ -240,14 +263,18 @@ func TestGeminiExtractor_OptionsAndErrorBranches(t *testing.T) {
 		t.Fatal("expected non-nil extractor")
 	}
 
-	// Test server returning invalid JSON body (corrupt candidates)
-	corruptServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"candidates": [{"content": {"parts": [{"text": "not-valid-json"}]}}]}`))
-	}))
-	defer corruptServer.Close()
+	// Test client returning invalid JSON body (corrupt candidates)
+	corruptClient := &mockHTTPClient{
+		doFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewBufferString(`{"candidates": [{"content": {"parts": [{"text": "not-valid-json"}]}}]}`)),
+			}, nil
+		},
+	}
 
-	eCorrupt := llm.NewGeminiExtractor("test-key", llm.WithBaseURL(corruptServer.URL))
+	eCorrupt := llm.NewGeminiExtractor("test-key", llm.WithHTTPClient(corruptClient))
 	res, err := eCorrupt.Extract(context.Background(), "Backend Developer", "Bangalore")
 	if err != nil {
 		t.Fatalf("expected fallback on corrupt JSON, got error: %v", err)
@@ -256,19 +283,171 @@ func TestGeminiExtractor_OptionsAndErrorBranches(t *testing.T) {
 		t.Errorf("expected fallback role 'Backend Engineer', got %s", res.Role)
 	}
 
-	// Test server returning API error in payload
-	errorServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"error": {"code": 403, "message": "API key expired"}}`))
-	}))
-	defer errorServer.Close()
+	// Test client returning API error in payload
+	errorClient := &mockHTTPClient{
+		doFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusBadRequest,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewBufferString(`{"error": {"code": 403, "message": "API key expired"}}`)),
+			}, nil
+		},
+	}
 
-	eErr := llm.NewGeminiExtractor("test-key", llm.WithBaseURL(errorServer.URL))
+	eErr := llm.NewGeminiExtractor("test-key", llm.WithHTTPClient(errorClient))
 	resErr, err := eErr.Extract(context.Background(), "QA Tester", "Hyderabad")
 	if err != nil {
 		t.Fatalf("expected fallback on API error payload, got error: %v", err)
 	}
 	if resErr.Role != "QA Engineer" {
 		t.Errorf("expected fallback QA Engineer, got %s", resErr.Role)
+	}
+}
+
+func TestGeminiExtractor_InteractionsAPI(t *testing.T) {
+	client := &mockHTTPClient{
+		doFunc: func(req *http.Request) (*http.Response, error) {
+			if req.URL.Path != "/v1beta/interactions" {
+				t.Fatalf("expected path /v1beta/interactions, got %s", req.URL.Path)
+			}
+			if req.Header.Get("x-goog-api-key") != "AQ.TestKey123" {
+				t.Fatalf("expected x-goog-api-key header, got %s", req.Header.Get("x-goog-api-key"))
+			}
+
+			resp := map[string]interface{}{
+				"id":     "interaction-123",
+				"status": "completed",
+				"steps": []map[string]interface{}{
+					{
+						"type": "thought",
+					},
+					{
+						"type": "model_output",
+						"content": []map[string]interface{}{
+							{
+								"type": "text",
+								"text": `{"role": "Full Stack Engineer", "city": "Bengaluru"}`,
+							},
+						},
+					},
+				},
+			}
+			b, _ := json.Marshal(resp)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewReader(b)),
+			}, nil
+		},
+	}
+
+	extractor := llm.NewGeminiExtractor(
+		"AQ.TestKey123",
+		llm.WithHTTPClient(client),
+		llm.WithModel("gemini-3.8-flash"),
+	)
+
+	entity, err := extractor.Extract(context.Background(), "Full Stack Dev", "Bengaluru office")
+	if err != nil {
+		t.Fatalf("unexpected extraction error: %v", err)
+	}
+
+	if entity.Role != "Full Stack Engineer" {
+		t.Errorf("expected role 'Full Stack Engineer', got '%s'", entity.Role)
+	}
+	if entity.City != "Bengaluru" {
+		t.Errorf("expected city 'Bengaluru', got '%s'", entity.City)
+	}
+}
+
+func TestGeminiExtractor_503RetrySuccess(t *testing.T) {
+	attempts := 0
+	client := &mockHTTPClient{
+		doFunc: func(req *http.Request) (*http.Response, error) {
+			attempts++
+			if attempts == 1 {
+				// Return 503 high demand spike on first attempt
+				return &http.Response{
+					StatusCode: http.StatusServiceUnavailable,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(bytes.NewBufferString(`{"error":{"message":"gemini-3.8-flash is currently experiencing high demand","code":"service_unavailable"}}`)),
+				}, nil
+			}
+
+			// Return success on second attempt
+			resp := map[string]interface{}{
+				"id":     "interaction-retry",
+				"status": "completed",
+				"steps": []map[string]interface{}{
+					{
+						"type": "model_output",
+						"content": []map[string]interface{}{
+							{
+								"type": "text",
+								"text": `{"role": "Backend Engineer", "city": "Pune"}`,
+							},
+						},
+					},
+				},
+			}
+			b, _ := json.Marshal(resp)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewReader(b)),
+			}, nil
+		},
+	}
+
+	extractor := llm.NewGeminiExtractor(
+		"AQ.TestRetryKey",
+		llm.WithHTTPClient(client),
+		llm.WithModel("gemini-3.8-flash"),
+	)
+
+	entity, err := extractor.Extract(context.Background(), "Golang Developer", "Pune location")
+	if err != nil {
+		t.Fatalf("expected retry to succeed, got error: %v", err)
+	}
+
+	if attempts != 2 {
+		t.Errorf("expected 2 attempts (1 failure + 1 retry), got %d", attempts)
+	}
+	if entity.Role != "Backend Engineer" {
+		t.Errorf("expected role 'Backend Engineer', got '%s'", entity.Role)
+	}
+	if entity.City != "Pune" {
+		t.Errorf("expected city 'Pune', got '%s'", entity.City)
+	}
+}
+
+func TestGeminiExtractor_503PersistentFallback(t *testing.T) {
+	client := &mockHTTPClient{
+		doFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusServiceUnavailable,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewBufferString(`{"error":{"message":"high demand spike","code":"service_unavailable"}}`)),
+			}, nil
+		},
+	}
+
+	extractor := llm.NewGeminiExtractor(
+		"AQ.TestPersistent503",
+		llm.WithHTTPClient(client),
+		llm.WithModel("gemini-3.8-flash"),
+	)
+
+	// Deliberate persistent 503 should gracefully activate rule fallback without returning an error
+	entity, err := extractor.Extract(context.Background(), "React UI Intern", "Mumbai office")
+	if err != nil {
+		t.Fatalf("expected fallback extractor to succeed, got error: %v", err)
+	}
+
+	if entity.Role != "Frontend Engineer" {
+		t.Errorf("expected fallback role 'Frontend Engineer', got '%s'", entity.Role)
+	}
+	if entity.City != "Mumbai" {
+		t.Errorf("expected fallback city 'Mumbai', got '%s'", entity.City)
 	}
 }
